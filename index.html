@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BG MODS</title>
+    
+    <!-- Firebase Realtime Database SDK (Version 8) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
     <style>
         * {
             margin: 0;
@@ -159,20 +164,29 @@
             background: rgba(0, 0, 0, 0.8);
         }
 
-        .edit-btn {
+        .action-btns {
             display: none;
             position: absolute;
             top: 5px;
             right: 5px;
+            gap: 5px;
+            z-index: 5;
+        }
+
+        .edit-btn, .delete-btn {
             background: rgba(255, 204, 0, 0.9);
             color: #000;
             border: none;
             border-radius: 50%;
             width: 28px;
             height: 28px;
-            font-size: 14px;
+            font-size: 12px;
             cursor: pointer;
-            z-index: 5;
+        }
+
+        .delete-btn {
+            background: rgba(255, 0, 0, 0.9);
+            color: #fff;
         }
 
         /* Modal Window */
@@ -238,7 +252,6 @@
             text-decoration: none;
             font-weight: bold;
             font-size: 14px;
-            transition: 0.2s;
         }
 
         .dl-mod-btn {
@@ -299,13 +312,15 @@
     <div class="admin-bar" id="adminBar">
         <button class="add-mod-btn" onclick="openAddModal()">+ Add New Mod</button>
         <div class="visitor-stats">
-            📊 Total Visitors: <span id="visitorCount">Loading...</span>
+            📊 Visitors: <span id="visitorCount">Loading...</span>
         </div>
     </div>
 
     <!-- Main Content Area -->
     <div class="container">
-        <div class="mods-grid" id="modsGrid"></div>
+        <div class="mods-grid" id="modsGrid">
+            <p style="text-align:center; grid-column: 1/-1;">Loading Mods...</p>
+        </div>
     </div>
 
     <!-- Footer -->
@@ -339,68 +354,72 @@
             <textarea id="inputDetails" class="form-input" placeholder="Mod Details" rows="3"></textarea>
             <input type="text" id="inputModLink" class="form-input" placeholder="Mod Download Link (https://...)">
             <input type="text" id="inputLiveryLink" class="form-input" placeholder="Livery Link (https://...)">
-            <button class="modal-action-btn dl-mod-btn" onclick="saveMod()">SAVE MOD</button>
+            <button class="modal-action-btn dl-mod-btn" onclick="saveMod()">SAVE MOD REALTIME</button>
         </div>
     </div>
 
     <script>
-        // Default Mods
-        const defaultMods = [
-            {
-                id: 1,
-                name: "Mahindra Thar V2",
-                image: "2f1fe9320e88a23eb6f0a544e4015480.jpg",
-                details: "High quality Mahindra Thar Offroad vehicle mod with custom lights and interior.",
-                modLink: "https://sharemods.com",
-                liveryLink: ""
-            },
-            {
-                id: 2,
-                name: "KSRTC Rajahamsa",
-                image: "2f1fe9320e88a23eb6f0a544e4015480.jpg",
-                details: "Karnataka KSRTC Rajahamsa Bus mod for Bus Simulator Indonesia.",
-                modLink: "https://sharemods.com",
-                liveryLink: ""
-            }
-        ];
+        // Firebase Configuration (Direct Realtime Data)
+        const firebaseConfig = {
+            apiKey: "AIzaSyC7oA0AKtLNY6Jv7akWbpJ",
+            authDomain: "bg-mods.firebaseapp.com",
+            databaseURL: "https://bg-mods-default-rtdb.firebaseio.com",
+            projectId: "bg-mods",
+            storageBucket: "bg-mods.firebasestorage.app",
+            messagingSenderId: "858746575494",
+            appId: "1:858746575494:web:bcad49389278"
+        };
 
-        // Retrieve mods permanently using LocalStorage
-        let modsList = JSON.parse(localStorage.getItem('bg_mods_list')) || defaultMods;
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const modsRef = database.ref('bg_mods');
+
+        let modsList = {};
         let isAdmin = false;
-        let currentEditId = null;
+        let currentEditKey = null;
 
-        // Visitor Counter API
-        function updateVisitorCount() {
-            fetch('https://api.counterapi.dev/v1/beatfreakbgm_bgmods/visits/up')
-                .then(response => response.json())
-                .then(data => {
-                    if (data && data.count !== undefined) {
-                        document.getElementById('visitorCount').innerText = data.count.toLocaleString();
-                    } else {
-                        document.getElementById('visitorCount').innerText = "1";
-                    }
-                })
-                .catch(error => {
-                    document.getElementById('visitorCount').innerText = "1";
-                });
+        // Visitor Counter
+        function setupVisitorCounter() {
+            const visitorRef = database.ref('visitor_count');
+            visitorRef.transaction(current => (current || 0) + 1);
+            visitorRef.on('value', snapshot => {
+                document.getElementById('visitorCount').innerText = snapshot.val() || 1;
+            });
         }
+
+        // Synchronize Mods in Realtime
+        modsRef.on('value', (snapshot) => {
+            modsList = snapshot.val() || {};
+            renderMods();
+        });
 
         // Render Mods to Grid
         function renderMods() {
             const grid = document.getElementById('modsGrid');
             grid.innerHTML = '';
 
-            modsList.forEach(mod => {
+            const keys = Object.keys(modsList);
+            if (keys.length === 0) {
+                grid.innerHTML = '<p style="text-align:center; grid-column: 1/-1;">No mods added yet!</p>';
+                return;
+            }
+
+            keys.forEach(key => {
+                const mod = modsList[key];
                 const card = document.createElement('div');
                 card.className = 'square-card';
+                
                 card.onclick = (e) => {
-                    if (!e.target.classList.contains('edit-btn')) {
+                    if (!e.target.classList.contains('edit-btn') && !e.target.classList.contains('delete-btn')) {
                         openModDetails(mod);
                     }
                 };
 
                 card.innerHTML = `
-                    <button class="edit-btn" style="display: ${isAdmin ? 'block' : 'none'};" onclick="openEditModal(${mod.id})">✏️</button>
+                    <div class="action-btns" style="display: ${isAdmin ? 'flex' : 'none'};">
+                        <button class="edit-btn" onclick="openEditModal('${key}')">✏️</button>
+                        <button class="delete-btn" onclick="deleteMod('${key}')">🗑️</button>
+                    </div>
                     <div class="square-img-container">
                         <img src="${mod.image || '2f1fe9320e88a23eb6f0a544e4015480.jpg'}" class="square-img" alt="${mod.name}">
                     </div>
@@ -428,13 +447,13 @@
             renderMods();
         }
 
-        // Open Link Safely in System Browser / Webview
+        // Open Link Safely
         function openLink(event, url) {
             event.preventDefault();
             if (url && url !== '#' && url !== '') {
                 window.open(url, '_system');
             } else {
-                alert('No download link provided!');
+                alert('No link provided!');
             }
         }
 
@@ -442,18 +461,14 @@
         function openModDetails(mod) {
             document.getElementById('popTitle').innerText = mod.name;
             document.getElementById('popDetails').innerText = mod.details;
-            
-            let mLink = mod.modLink ? mod.modLink.replace(/^#/, '') : '#';
-            let lLink = mod.liveryLink ? mod.liveryLink.replace(/^#/, '') : '#';
-
-            document.getElementById('popModLink').href = mLink;
-            document.getElementById('popLiveryLink').href = lLink;
+            document.getElementById('popModLink').href = mod.modLink || '#';
+            document.getElementById('popLiveryLink').href = mod.liveryLink || '#';
             document.getElementById('modModal').style.display = 'flex';
         }
 
         // Open Add Modal
         function openAddModal() {
-            currentEditId = null;
+            currentEditKey = null;
             document.getElementById('formTitle').innerText = "Add New Mod";
             document.getElementById('inputName').value = '';
             document.getElementById('inputImage').value = '';
@@ -464,9 +479,9 @@
         }
 
         // Open Edit Modal
-        function openEditModal(id) {
-            currentEditId = id;
-            const mod = modsList.find(m => m.id === id);
+        function openEditModal(key) {
+            currentEditKey = key;
+            const mod = modsList[key];
             if (mod) {
                 document.getElementById('formTitle').innerText = "Edit Mod";
                 document.getElementById('inputName').value = mod.name;
@@ -478,48 +493,54 @@
             }
         }
 
-        // Save Mod Permanently
+        // Save Mod to Firebase Realtime
         function saveMod() {
-            const name = document.getElementById('inputName').value;
-            const image = document.getElementById('inputImage').value || '2f1fe9320e88a23eb6f0a544e4015480.jpg';
-            const details = document.getElementById('inputDetails').value;
-            let modLink = document.getElementById('inputModLink').value;
-            let liveryLink = document.getElementById('inputLiveryLink').value;
-
-            // Remove `#` if pasted accidentally
-            modLink = modLink.replace(/^#/, '');
-            liveryLink = liveryLink.replace(/^#/, '');
+            const name = document.getElementById('inputName').value.trim();
+            const image = document.getElementById('inputImage').value.trim() || '2f1fe9320e88a23eb6f0a544e4015480.jpg';
+            const details = document.getElementById('inputDetails').value.trim();
+            let modLink = document.getElementById('inputModLink').value.trim();
+            let liveryLink = document.getElementById('inputLiveryLink').value.trim();
 
             if (!name) {
                 alert("Please enter Mod Name!");
                 return;
             }
 
-            if (currentEditId) {
-                const mod = modsList.find(m => m.id === currentEditId);
-                mod.name = name;
-                mod.image = image;
-                mod.details = details;
-                mod.modLink = modLink;
-                mod.liveryLink = liveryLink;
+            const modData = {
+                name: name,
+                image: image,
+                details: details,
+                modLink: modLink,
+                liveryLink: liveryLink,
+                timestamp: Date.now()
+            };
+
+            if (currentEditKey) {
+                modsRef.child(currentEditKey).update(modData, (error) => {
+                    if (!error) {
+                        alert("Mod Updated Realtime!");
+                        closeModal('adminFormModal');
+                    } else {
+                        alert("Error: " + error.message);
+                    }
+                });
             } else {
-                const newMod = {
-                    id: Date.now(),
-                    name: name,
-                    image: image,
-                    details: details,
-                    modLink: modLink,
-                    liveryLink: liveryLink
-                };
-                modsList.push(newMod);
+                modsRef.push().set(modData, (error) => {
+                    if (!error) {
+                        alert("New Mod Saved Realtime!");
+                        closeModal('adminFormModal');
+                    } else {
+                        alert("Error: " + error.message);
+                    }
+                });
             }
+        }
 
-            // Save to browser LocalStorage
-            localStorage.setItem('bg_mods_list', JSON.stringify(modsList));
-
-            closeModal('adminFormModal');
-            renderMods();
-            alert("Mod saved successfully!");
+        // Delete Mod Realtime
+        function deleteMod(key) {
+            if (confirm("Are you sure you want to delete this mod?")) {
+                modsRef.child(key).remove();
+            }
         }
 
         function closeModal(id) {
@@ -528,8 +549,7 @@
 
         // Initialize Page
         window.onload = function() {
-            updateVisitorCount();
-            renderMods();
+            setupVisitorCounter();
         };
     </script>
 </body>
