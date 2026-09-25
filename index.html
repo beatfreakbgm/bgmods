@@ -80,6 +80,7 @@
         .visitor-stats {
             font-size: 14px;
             color: #00ffcc;
+            font-weight: bold;
         }
 
         /* Main Container */
@@ -117,7 +118,7 @@
 
         .square-img-container {
             width: 100%;
-            padding-top: 100%; /* Makes it perfect 1:1 Square */
+            padding-top: 100%; /* Perfect 1:1 Square */
             position: relative;
             overflow: hidden;
         }
@@ -280,7 +281,7 @@
     <div class="admin-bar" id="adminBar">
         <button class="add-mod-btn" onclick="openAddModal()">+ Add New Mod</button>
         <div class="visitor-stats">
-            📊 Total Visitors: <span id="visitorCount">1,248</span>
+            📊 Total Visitors: <span id="visitorCount">Loading...</span>
         </div>
     </div>
 
@@ -327,7 +328,7 @@
     </div>
 
     <script>
-        // Sample Initial Mods Data
+        // Initial Mods Data
         let modsList = [
             {
                 id: 1,
@@ -349,6 +350,23 @@
 
         let isAdmin = false;
         let currentEditId = null;
+
+        // Fetch Live Visitor Count via API
+        function updateVisitorCount() {
+            fetch('https://api.counterapi.dev/v1/beatfreakbgm_bgmods/visits/up')
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.count !== undefined) {
+                        document.getElementById('visitorCount').innerText = data.count.toLocaleString();
+                    } else {
+                        document.getElementById('visitorCount').innerText = "1";
+                    }
+                })
+                .catch(error => {
+                    console.log('Error fetching count:', error);
+                    document.getElementById('visitorCount').innerText = "1";
+                });
+        }
 
         // Render Mods to Grid
         function renderMods() {
@@ -379,7 +397,7 @@
         function toggleAdminPanel() {
             if (!isAdmin) {
                 let pass = prompt("Enter Admin Passcode:");
-                if (pass === "BGFF89K") { // Change your admin password here
+                if (pass === "BGFF89K") {
                     isAdmin = true;
                     document.getElementById('adminBar').style.display = 'flex';
                     alert("Admin Mode Active!");
@@ -471,9 +489,11 @@
             document.getElementById(id).style.display = 'none';
         }
 
-        // Initialize
-        renderMods();
+        // Initialize Page
+        window.onload = function() {
+            updateVisitorCount();
+            renderMods();
+        };
     </script>
 </body>
 </html>
-
