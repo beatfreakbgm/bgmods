@@ -45,6 +45,22 @@
             letter-spacing: 1px;
         }
 
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .refresh-btn {
+            background: #333333;
+            color: white;
+            border: 1px solid #555555;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
         .admin-toggle-btn {
             background: #ff3333;
             color: white;
@@ -56,7 +72,7 @@
             box-shadow: 0 0 10px rgba(255, 51, 51, 0.4);
         }
 
-        /* Admin Bar (Only visible to Admin) */
+        /* Admin Bar */
         .admin-bar {
             display: none;
             background: rgba(20, 20, 20, 0.9);
@@ -91,7 +107,7 @@
             width: 100%;
         }
 
-        /* Grid Layout for Square Icons */
+        /* Grid Layout */
         .mods-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
@@ -118,7 +134,7 @@
 
         .square-img-container {
             width: 100%;
-            padding-top: 100%; /* Perfect 1:1 Square */
+            padding-top: 100%;
             position: relative;
             overflow: hidden;
         }
@@ -159,7 +175,7 @@
             z-index: 5;
         }
 
-        /* Modal / Pop-up Window */
+        /* Modal Window */
         .modal {
             display: none;
             position: fixed;
@@ -235,7 +251,6 @@
             color: white;
         }
 
-        /* Form styling for Admin Add/Edit */
         .form-input {
             width: 100%;
             padding: 8px;
@@ -274,7 +289,10 @@
     <!-- Header -->
     <header>
         <div class="logo">BG MODS</div>
-        <button class="admin-toggle-btn" onclick="toggleAdminPanel()">Admin Mode</button>
+        <div class="header-buttons">
+            <button class="refresh-btn" onclick="location.reload()">🔄 Refresh</button>
+            <button class="admin-toggle-btn" onclick="toggleAdminPanel()">Admin Mode</button>
+        </div>
     </header>
 
     <!-- Admin Panel Control Bar -->
@@ -287,9 +305,7 @@
 
     <!-- Main Content Area -->
     <div class="container">
-        <div class="mods-grid" id="modsGrid">
-            <!-- Mod items will load here dynamically -->
-        </div>
+        <div class="mods-grid" id="modsGrid"></div>
     </div>
 
     <!-- Footer -->
@@ -307,9 +323,9 @@
         <div class="modal-content">
             <span class="close-btn" onclick="closeModal('modModal')">&times;</span>
             <h3 class="modal-title" id="popTitle">Mod Title</h3>
-            <div class="modal-details" id="popDetails">Mod details text goes here...</div>
-            <a href="#" class="modal-action-btn dl-mod-btn" id="popModLink" target="_blank">📥 DOWNLOAD MOD</a>
-            <a href="#" class="modal-action-btn dl-livery-btn" id="popLiveryLink" target="_blank">🎨 DOWNLOAD LIVERY</a>
+            <div class="modal-details" id="popDetails"></div>
+            <a href="#" class="modal-action-btn dl-mod-btn" id="popModLink" onclick="openLink(event, this.href)">📥 DOWNLOAD MOD</a>
+            <a href="#" class="modal-action-btn dl-livery-btn" id="popLiveryLink" onclick="openLink(event, this.href)">🎨 DOWNLOAD LIVERY</a>
         </div>
     </div>
 
@@ -321,37 +337,39 @@
             <input type="text" id="inputName" class="form-input" placeholder="Mod Name">
             <input type="text" id="inputImage" class="form-input" placeholder="Photo URL / Image File Name">
             <textarea id="inputDetails" class="form-input" placeholder="Mod Details" rows="3"></textarea>
-            <input type="text" id="inputModLink" class="form-input" placeholder="Mod Download Link">
-            <input type="text" id="inputLiveryLink" class="form-input" placeholder="Livery Link">
+            <input type="text" id="inputModLink" class="form-input" placeholder="Mod Download Link (https://...)">
+            <input type="text" id="inputLiveryLink" class="form-input" placeholder="Livery Link (https://...)">
             <button class="modal-action-btn dl-mod-btn" onclick="saveMod()">SAVE MOD</button>
         </div>
     </div>
 
     <script>
-        // Initial Mods Data
-        let modsList = [
+        // Default Mods
+        const defaultMods = [
             {
                 id: 1,
                 name: "Mahindra Thar V2",
                 image: "2f1fe9320e88a23eb6f0a544e4015480.jpg",
                 details: "High quality Mahindra Thar Offroad vehicle mod with custom lights and interior.",
-                modLink: "#",
-                liveryLink: "#"
+                modLink: "https://sharemods.com",
+                liveryLink: ""
             },
             {
                 id: 2,
                 name: "KSRTC Rajahamsa",
                 image: "2f1fe9320e88a23eb6f0a544e4015480.jpg",
                 details: "Karnataka KSRTC Rajahamsa Bus mod for Bus Simulator Indonesia.",
-                modLink: "#",
-                liveryLink: "#"
+                modLink: "https://sharemods.com",
+                liveryLink: ""
             }
         ];
 
+        // Retrieve mods permanently using LocalStorage
+        let modsList = JSON.parse(localStorage.getItem('bg_mods_list')) || defaultMods;
         let isAdmin = false;
         let currentEditId = null;
 
-        // Fetch Live Visitor Count via API
+        // Visitor Counter API
         function updateVisitorCount() {
             fetch('https://api.counterapi.dev/v1/beatfreakbgm_bgmods/visits/up')
                 .then(response => response.json())
@@ -363,7 +381,6 @@
                     }
                 })
                 .catch(error => {
-                    console.log('Error fetching count:', error);
                     document.getElementById('visitorCount').innerText = "1";
                 });
         }
@@ -385,7 +402,7 @@
                 card.innerHTML = `
                     <button class="edit-btn" style="display: ${isAdmin ? 'block' : 'none'};" onclick="openEditModal(${mod.id})">✏️</button>
                     <div class="square-img-container">
-                        <img src="${mod.image}" class="square-img" alt="${mod.name}">
+                        <img src="${mod.image || '2f1fe9320e88a23eb6f0a544e4015480.jpg'}" class="square-img" alt="${mod.name}">
                     </div>
                     <div class="mod-name">${mod.name}</div>
                 `;
@@ -411,16 +428,30 @@
             renderMods();
         }
 
-        // Mod Details Modal
+        // Open Link Safely in System Browser / Webview
+        function openLink(event, url) {
+            event.preventDefault();
+            if (url && url !== '#' && url !== '') {
+                window.open(url, '_system');
+            } else {
+                alert('No download link provided!');
+            }
+        }
+
+        // Mod Details Pop-up
         function openModDetails(mod) {
             document.getElementById('popTitle').innerText = mod.name;
             document.getElementById('popDetails').innerText = mod.details;
-            document.getElementById('popModLink').href = mod.modLink;
-            document.getElementById('popLiveryLink').href = mod.liveryLink;
+            
+            let mLink = mod.modLink ? mod.modLink.replace(/^#/, '') : '#';
+            let lLink = mod.liveryLink ? mod.liveryLink.replace(/^#/, '') : '#';
+
+            document.getElementById('popModLink').href = mLink;
+            document.getElementById('popLiveryLink').href = lLink;
             document.getElementById('modModal').style.display = 'flex';
         }
 
-        // Add Modal
+        // Open Add Modal
         function openAddModal() {
             currentEditId = null;
             document.getElementById('formTitle').innerText = "Add New Mod";
@@ -432,7 +463,7 @@
             document.getElementById('adminFormModal').style.display = 'flex';
         }
 
-        // Edit Modal
+        // Open Edit Modal
         function openEditModal(id) {
             currentEditId = id;
             const mod = modsList.find(m => m.id === id);
@@ -447,13 +478,17 @@
             }
         }
 
-        // Save Mod (Add / Edit)
+        // Save Mod Permanently
         function saveMod() {
             const name = document.getElementById('inputName').value;
             const image = document.getElementById('inputImage').value || '2f1fe9320e88a23eb6f0a544e4015480.jpg';
             const details = document.getElementById('inputDetails').value;
-            const modLink = document.getElementById('inputModLink').value;
-            const liveryLink = document.getElementById('inputLiveryLink').value;
+            let modLink = document.getElementById('inputModLink').value;
+            let liveryLink = document.getElementById('inputLiveryLink').value;
+
+            // Remove `#` if pasted accidentally
+            modLink = modLink.replace(/^#/, '');
+            liveryLink = liveryLink.replace(/^#/, '');
 
             if (!name) {
                 alert("Please enter Mod Name!");
@@ -461,7 +496,6 @@
             }
 
             if (currentEditId) {
-                // Update
                 const mod = modsList.find(m => m.id === currentEditId);
                 mod.name = name;
                 mod.image = image;
@@ -469,7 +503,6 @@
                 mod.modLink = modLink;
                 mod.liveryLink = liveryLink;
             } else {
-                // Add
                 const newMod = {
                     id: Date.now(),
                     name: name,
@@ -481,8 +514,12 @@
                 modsList.push(newMod);
             }
 
+            // Save to browser LocalStorage
+            localStorage.setItem('bg_mods_list', JSON.stringify(modsList));
+
             closeModal('adminFormModal');
             renderMods();
+            alert("Mod saved successfully!");
         }
 
         function closeModal(id) {
